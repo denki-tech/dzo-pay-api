@@ -1,0 +1,313 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "D-ZO Pay API",
+    "description": "Production-grade fintech payment API with multi-provider support, virtual wallets, and admin analytics",
+    "version": "1.0.0",
+    "contact": {
+      "name": "D-ZO Pay Support",
+      "email": "support@dzo-pay.com",
+      "url": "https://dzo-pay.com/support"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api/v1",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://api.dzo-pay.com/api/v1",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    { "name": "Authentication", "description": "User registration, login, and token management" },
+    { "name": "Payments", "description": "Payment initialization, verification, and links" },
+    { "name": "Wallets", "description": "Virtual wallet management and transfers" },
+    { "name": "Subscriptions", "description": "Plan management and billing" },
+    { "name": "Webhooks", "description": "Webhook handling and logs" },
+    { "name": "Notifications", "description": "User notification management" },
+    { "name": "Admin", "description": "Admin panel endpoints" },
+    { "name": "Analytics", "description": "Dashboard and reporting" },
+    { "name": "Health", "description": "System health checks" }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "firstName", "lastName"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "firstName": { "type": "string", "minLength": 2 },
+                  "lastName": { "type": "string", "minLength": 2 },
+                  "phoneNumber": { "type": "string" },
+                  "plan": { "type": "string", "enum": ["free", "basic", "pro", "enterprise"], "default": "free" },
+                  "referralCode": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered successfully" },
+          "400": { "description": "Validation error" },
+          "409": { "description": "Email already exists" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" },
+                  "mfaCode": { "type": "string", "length": 6 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get user profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile retrieved" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/payments/initialize": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Initialize a payment",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount", "description"],
+                "properties": {
+                  "amount": { "type": "number", "minimum": 100 },
+                  "currency": { "type": "string", "default": "NGN" },
+                  "description": { "type": "string" },
+                  "provider": { "type": "string", "enum": ["paystack", "stripe", "flutterwave"], "default": "paystack" },
+                  "walletId": { "type": "string" },
+                  "callbackUrl": { "type": "string" },
+                  "idempotencyKey": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Payment initialized" },
+          "400": { "description": "Invalid request" }
+        }
+      }
+    },
+    "/payments/verify/{reference}": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Verify a payment",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Payment verified" },
+          "404": { "description": "Transaction not found" }
+        }
+      }
+    },
+    "/wallets": {
+      "get": {
+        "tags": ["Wallets"],
+        "summary": "Get user wallets",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Wallets retrieved" }
+        }
+      },
+      "post": {
+        "tags": ["Wallets"],
+        "summary": "Create a new wallet",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "currency": { "type": "string", "default": "NGN" },
+                  "type": { "type": "string", "enum": ["primary", "savings", "business", "escrow"], "default": "primary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Wallet created" },
+          "400": { "description": "Wallet limit reached" }
+        }
+      }
+    },
+    "/wallets/transfer": {
+      "post": {
+        "tags": ["Wallets"],
+        "summary": "Transfer funds between wallets",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sourceWalletId", "amount", "description"],
+                "properties": {
+                  "sourceWalletId": { "type": "string" },
+                  "destinationWalletId": { "type": "string" },
+                  "destinationAccountNumber": { "type": "string", "length": 10 },
+                  "amount": { "type": "number", "minimum": 100 },
+                  "description": { "type": "string" },
+                  "idempotencyKey": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Transfer completed" },
+          "400": { "description": "Invalid transfer" }
+        }
+      }
+    },
+    "/subscriptions/plans": {
+      "get": {
+        "tags": ["Subscriptions"],
+        "summary": "Get available plans",
+        "responses": {
+          "200": { "description": "Plans retrieved" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all users",
+        "security": [{ "bearerAuth": [], "adminKey": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "plan", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Users list" },
+          "403": { "description": "Admin access required" }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get dashboard statistics",
+        "security": [{ "bearerAuth": [], "adminKey": [] }],
+        "parameters": [
+          { "name": "period", "in": "query", "schema": { "type": "string", "default": "30d" } }
+        ],
+        "responses": {
+          "200": { "description": "Statistics retrieved" }
+        }
+      }
+    },
+    "/analytics/dashboard": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get analytics dashboard data",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "period", "in": "query", "schema": { "type": "string", "default": "30d" } }
+        ],
+        "responses": {
+          "200": { "description": "Analytics data" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Basic health check",
+        "responses": {
+          "200": { "description": "Service is healthy" }
+        }
+      }
+    },
+    "/health/detailed": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Detailed health check with service status",
+        "responses": {
+          "200": { "description": "All services healthy" },
+          "503": { "description": "Some services degraded" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "adminKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Admin-Key"
+      }
+    }
+  }
+}
